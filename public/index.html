@@ -42,8 +42,8 @@
     <label for="url">Landing page URL</label>
     <input type="text" id="url" placeholder="https://applications.example.edu/apply">
     <div class="row">
-      <div><label for="emailXpath">Email field XPath</label><input type="text" id="emailXpath" placeholder='//*[@id="Email"]'></div>
-      <div><label for="submitXpath">Submit button XPath</label><input type="text" id="submitXpath" placeholder='//*[@id="registerBtn"]'></div>
+      <div><label for="emailXpath">Email field XPath <small>(default works for most pages)</small></label><input type="text" id="emailXpath" value='//*[@id="Email"]'></div>
+      <div><label for="submitXpath">Submit button XPath <small>(default works for most pages)</small></label><input type="text" id="submitXpath" value='//*[@id="registerBtn"]'></div>
     </div>
     <div class="row">
       <div><label for="followupXpath">Resend link XPath <small>(optional, clicked after submit)</small></label><input type="text" id="followupXpath" placeholder='//a[text()="Click here"]'></div>
@@ -87,7 +87,7 @@ const $ = (id) => document.getElementById(id);
 const fields = ["url","emailXpath","submitXpath","followupXpath","closeXpath","errorText","minDelay","maxDelay","backoff"];
 let emails = [], done = new Set(), running = false, stopFlag = false;
 
-fields.forEach((f) => { const v = localStorage.getItem("rr_" + f); if (v !== null) $(f).value = v; $(f).addEventListener("input", () => localStorage.setItem("rr_" + f, $(f).value)); });
+fields.forEach((f) => { let v = null; try { v = localStorage.getItem("rr_" + f); } catch {} if (v) $(f).value = v; $(f).addEventListener("blur", () => { if (!$(f).value.trim()) $(f).value = $(f).defaultValue; }); $(f).addEventListener("input", () => { try { localStorage.setItem("rr_" + f, $(f).value); } catch {} }); });
 
 function parseCsv(text) {
   const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
@@ -107,12 +107,13 @@ $("csv").addEventListener("change", async (e) => {
 });
 
 function log(msg, cls = "") { const d = document.createElement("div"); d.className = cls; d.textContent = msg; $("log").prepend(d); }
+const val = (id) => $(id).value.trim() || $(id).defaultValue;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function stats() { $("bar").value = done.size; $("stats").textContent = `${done.size} of ${emails.length} handled`; }
 
 async function call(email) {
   const body = { email };
-  ["url","emailXpath","submitXpath","followupXpath","closeXpath","errorText"].forEach((k) => (body[k] = $(k).value.trim()));
+  ["url","emailXpath","submitXpath","followupXpath","closeXpath","errorText"].forEach((k) => (body[k] = val(k)));
   const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json", "x-app-password": $("password").value }, body: JSON.stringify(body) });
   if (r.status === 401) return { status: "auth" };
   try { return await r.json(); } catch { return { status: "error", message: "Server timed out or crashed" }; }
@@ -120,7 +121,7 @@ async function call(email) {
 
 $("start").addEventListener("click", async () => {
   if (!emails.length) return log("Load a CSV first", "bad");
-  if (!$("url").value || !$("emailXpath").value || !$("submitXpath").value) return log("URL, email XPath and submit XPath are required", "bad");
+  if (!val("url") || !val("emailXpath") || !val("submitXpath")) return log("URL, email XPath and submit XPath are required", "bad");
   running = true; stopFlag = false; $("start").disabled = true; $("stop").disabled = false;
   for (const email of emails) {
     if (stopFlag) break;
