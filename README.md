@@ -1,7 +1,10 @@
 # Resend runner
 
 ## Deploy
-1. Push this folder to a GitHub repo (or run `npx vercel` inside it).
+Live at https://resend-verification-tool.vercel.app. The Vercel project is linked to this GitHub repo, so every push to `main` deploys automatically.
+
+First-time setup (already done):
+1. Import the GitHub repo into Vercel.
 2. In Vercel: Project > Settings > Environment Variables, add `APP_PASSWORD` with any password you choose.
 3. Redeploy, open the URL, enter that password in the tool.
 
