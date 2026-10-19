@@ -41,6 +41,8 @@
     <h2>Target page</h2>
     <label for="url">Landing page URL</label>
     <input type="text" id="url" placeholder="https://applications.example.edu/apply">
+    <label for="preXpath">Register tab XPath <small>(optional, clicked first, for pages that open on Login)</small></label>
+    <input type="text" id="preXpath" placeholder='//a[@href="#tab1default"]'>
     <div class="row">
       <div><label for="emailXpath">Email field XPath <small>(default works for most pages)</small></label><input type="text" id="emailXpath" value='//*[@id="Email"]'></div>
       <div><label for="submitXpath">Submit button XPath <small>(default works for most pages)</small></label><input type="text" id="submitXpath" value='//*[@id="registerBtn"]'></div>
@@ -84,7 +86,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const fields = ["url","emailXpath","submitXpath","followupXpath","closeXpath","errorText","minDelay","maxDelay","backoff"];
+const fields = ["url","preXpath","emailXpath","submitXpath","followupXpath","closeXpath","errorText","minDelay","maxDelay","backoff"];
 let emails = [], done = new Set(), running = false, stopFlag = false;
 
 fields.forEach((f) => { let v = null; try { v = localStorage.getItem("rr_" + f); } catch {} if (v) $(f).value = v; $(f).addEventListener("blur", () => { if (!$(f).value.trim()) $(f).value = $(f).defaultValue; }); $(f).addEventListener("input", () => { try { localStorage.setItem("rr_" + f, $(f).value); } catch {} }); });
@@ -113,7 +115,7 @@ function stats() { $("bar").value = done.size; $("stats").textContent = `${done.
 
 async function call(email) {
   const body = { email };
-  ["url","emailXpath","submitXpath","followupXpath","closeXpath","errorText"].forEach((k) => (body[k] = val(k)));
+  ["url","preXpath","emailXpath","submitXpath","followupXpath","closeXpath","errorText"].forEach((k) => (body[k] = val(k)));
   const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json", "x-app-password": $("password").value }, body: JSON.stringify(body) });
   if (r.status === 401) return { status: "auth" };
   try { return await r.json(); } catch { return { status: "error", message: "Server timed out or crashed" }; }

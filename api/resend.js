@@ -20,6 +20,19 @@ async function xp(page, xpath, timeout = 15000) {
   return page.waitForSelector(`::-p-xpath(${xpath})`, { timeout, visible: true });
 }
 
+// Real mouse click when the element is on top; DOM click when an overlay
+// (e.g. an invisible page loader) covers it and would swallow the mouse click.
+async function smartClick(el) {
+  await el.scrollIntoView().catch(() => {});
+  const covered = await el.evaluate((node) => {
+    const r = node.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !(top && (top === node || node.contains(top)));
+  });
+  if (covered) await el.evaluate((node) => node.click());
+  else await el.click();
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ status: "error", message: "POST only" });
 
@@ -29,7 +42,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ status: "error", message: "Wrong or missing password" });
   }
 
-  const { email, url, emailXpath, submitXpath, followupXpath, closeXpath, errorText } = req.body || {};
+  const { email, url, preXpath, emailXpath, submitXpath, followupXpath, closeXpath, errorText } = req.body || {};
   if (!email || !url || !emailXpath || !submitXpath) {
     return res.status(400).json({ status: "error", message: "email, url, emailXpath, submitXpath are required" });
   }
@@ -48,12 +61,19 @@ export default async function handler(req, res) {
 
     if (resp && resp.status() === 429) return res.json({ status: "rate_limited", email });
 
+    // Some pages open on a Login tab; click Register (or similar) first
+    if (preXpath) {
+      const pre = await xp(page, preXpath);
+      await smartClick(pre);
+      await sleep(1000);
+    }
+
     const emailEl = await xp(page, emailXpath);
     await emailEl.click({ clickCount: 3 });
     await emailEl.type(email, { delay: 20 });
 
     const submitEl = await xp(page, submitXpath);
-    await submitEl.click();
+    await smartClick(submitEl);
     await sleep(2000);
 
     if (errorText) {
@@ -63,13 +83,13 @@ export default async function handler(req, res) {
 
     if (followupXpath) {
       const f = await xp(page, followupXpath);
-      await f.click();
+      await smartClick(f);
       await sleep(2000);
     }
     if (closeXpath) {
       try {
         const c = await xp(page, closeXpath, 5000);
-        await c.click();
+        await smartClick(c);
       } catch {
         /* optional */
       }
